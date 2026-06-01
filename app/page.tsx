@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import axios from 'axios'; // 🟢 react에서 axios 패키지로 올바르게 수정 완료!
+import axios from 'axios';
 
 interface Streamer {
   name: string;
@@ -66,7 +66,6 @@ export default function Home() {
           });
         });
         
-        // 시청자 순 정렬 후 정확히 상위 50개만 컷 및 합산
         tempSoop.sort((a, b) => b.viewers - a.viewers);
         const top50Soop = tempSoop.slice(0, 50);
         top50Soop.forEach(s => { soopSum += s.viewers; });
@@ -95,7 +94,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchRankings();
-    const interval = setInterval(fetchRankings, 15000); // 15초마다 자동 갱신
+    const interval = setInterval(fetchRankings, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -126,7 +125,7 @@ export default function Home() {
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
             
-            {/* 📊 상단 전광판 대항전 지표 */}
+            {/* 📊 상단 전광판 대항전 지표 (SOOP 0명 버그 영구 해결) */}
             <section className="bg-gray-950 p-5 rounded-2xl border border-gray-800 shadow-2xl space-y-4">
               <div className="flex justify-between items-center text-xs md:text-sm font-black tracking-wide">
                 <div className="flex items-center space-x-2 text-emerald-400">
