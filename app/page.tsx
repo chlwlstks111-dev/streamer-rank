@@ -23,7 +23,7 @@ interface Post {
   created_at: string;
   likes: number;
   password?: string;
-  category: 'free' | 'recommend'; // 👈 카테고리 속성 정의
+  category: 'free' | 'recommend';
 }
 
 interface Comment {
@@ -35,8 +35,7 @@ interface Comment {
 }
 
 export default function Home() {
-  // 'ranking' = 실시간 순위, 'free' = 자유게시판, 'recommend' = 스트리머 추천
-  const [activeTab, setActiveTab] = useState<'ranking' | 'free' | 'recommend'>('ranking');
+  const [activeTab, setActiveTab] = useState<'ranking' | 'free' | 'recommend' | 'tier'>('ranking');
   const [subTab, setSubTab] = useState<'all' | 'concept'>('all');
   
   const [streamers, setStreamers] = useState<Streamer[]>([]);
@@ -88,15 +87,13 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // 대메뉴 탭, 서브 탭, 검색어가 바뀌면 페이지 번호를 1로 안전하게 리셋
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, subTab, searchQuery]);
 
-  // 📝 1. 게시글 등록 (현재 보고 있는 탭의 카테고리로 자동 주입)
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeTab === 'ranking') return;
+    if (activeTab === 'ranking' || activeTab === 'tier') return;
     if (!newTitle.trim() || !newContent.trim()) return alert('제목과 내용을 입력해주세요!');
     if (!newPassword.trim()) return alert('삭제용 비밀번호를 입력해주세요!');
 
@@ -106,7 +103,7 @@ export default function Home() {
       author: newAuthor.trim() ? newAuthor : '익명 유저',
       password: newPassword,
       likes: 0,
-      category: activeTab // 👈 'free' 탭이면 free로, 'recommend' 탭이면 recommend로 자동 저장!
+      category: activeTab
     });
 
     if (!error) {
@@ -177,29 +174,29 @@ export default function Home() {
     if (!error) fetchPosts();
   };
 
-  // 🔍 1차 필터링: [현재 카테고리 탭] 분리 + [전체/인기] 분리 + [검색어] 필터링 결합
   const filteredPosts = posts
-    .filter(post => {
-      // 만약 과거에 만든 카테고리 없는 글은 기본적으로 '자유게시판(free)'에 매칭되게 안전 필터 적용
-      const postCategory = post.category || 'free';
-      return postCategory === activeTab;
-    })
+    .filter(post => post.category === (activeTab === 'free' ? 'free' : 'recommend'))
     .filter(post => subTab === 'all' ? true : (post.likes || 0) >= 10)
     .filter(post => {
       const query = searchQuery.toLowerCase().trim();
       if (!query) return true;
-      return (
-        post.title.toLowerCase().includes(query) ||
-        post.content.toLowerCase().includes(query) ||
-        post.author.toLowerCase().includes(query)
-      );
+      return post.title.toLowerCase().includes(query) || post.content.toLowerCase().includes(query) || post.author.toLowerCase().includes(query);
     });
 
-  // 🔢 2차 필터링: 페이지네이션 쪼개기
   const indexOfLastPost = currentPage * POSTS_PER_PAGE;
   const indexOfFirstPost = indexOfLastPost - POSTS_PER_PAGE;
   const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
+
+  // 🧮 [수정 완료] 대표님이 새로 설계하신 시청자 수 티어 연산 조건 매칭
+  const getCalculatedTier = (viewers: number) => {
+    if (viewers >= 10000) return 'S';
+    if (viewers >= 7000) return 'A';
+    if (viewers >= 3000) return 'B';
+    if (viewers >= 1000) return 'C';
+    if (viewers >= 300) return 'D';
+    return 'F';
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-white font-sans">
@@ -215,16 +212,14 @@ export default function Home() {
             <button onClick={() => setActiveTab('ranking')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'ranking' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'}`}>
               <span>📊</span><span>실시간 순위</span>
             </button>
-            {/* 1. 자유게시판으로 명칭 변경 */}
             <button onClick={() => setActiveTab('free')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'free' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'}`}>
               <span>💬</span><span>자유게시판</span>
             </button>
-            {/* 2. 스트리머를 추천합니다 신설 카테고리 */}
             <button onClick={() => setActiveTab('recommend')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'recommend' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'}`}>
               <span>👍</span><span>스트리머를 추천합니다</span>
             </button>
-            <button onClick={() => alert('대표님, 티어표는 다음 공사 타깃입니다! 🛠️')} className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm text-gray-600 hover:text-gray-500 cursor-not-allowed">
-              <span>👑</span><span>스트리머 티어표 (준비중)</span>
+            <button onClick={() => setActiveTab('tier')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'tier' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'}`}>
+              <span>👑</span><span>스트리머 티어표</span>
             </button>
           </nav>
         </div>
@@ -261,19 +256,82 @@ export default function Home() {
               </div>
             )}
 
-            {/* 💬 2 & 3. 게시판 공용 출력 구역 (동일한 고스펙 툴 공유) */}
+            {/* 👑 2. 스트리머 티어표 레이아웃 구역 (대표님 오더 기준 적용 완료) */}
+            {activeTab === 'tier' && (
+              <div>
+                <header className="mb-8">
+                  <h2 className="text-2xl font-black">👑 실시간 스트리머 기업 규모 티어표</h2>
+                  <p className="text-gray-400 mt-1 text-sm">현재 라이브 시청자 수를 기준으로 기업 규모가 실시간 반영됩니다.</p>
+                </header>
+
+                <div className="bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl divide-y divide-gray-800">
+                  
+                  {/* [수정 완료] 대표님이 커스텀 하신 명칭과 매칭 데이터 세팅 */}
+                  {[
+                    { label: 'S', name: '대기업', bg: 'bg-orange-400 text-gray-950' },
+                    { label: 'A', name: '중견기업', bg: 'bg-amber-200 text-gray-950' },
+                    { label: 'B', name: '중기업', bg: 'bg-yellow-100 text-gray-950' },
+                    { label: 'C', name: '소기업', bg: 'bg-green-400 text-gray-950' },
+                    { label: 'D', name: '스타트업', bg: 'bg-emerald-300 text-gray-950' },
+                    { label: 'F', name: '꿈나무', bg: 'bg-sky-400 text-gray-950' },
+                  ].map(tierInfo => {
+                    const tierStreamers = streamers.filter(s => getCalculatedTier(s.viewers) === tierInfo.label);
+
+                    return (
+                      <div key={tierInfo.label} className="grid grid-cols-12 items-stretch min-h-[5.5rem]">
+                        {/* [수정 완료] 왼쪽 계급 표지판에 알파벳 + 지정 명칭 추가 결합 */}
+                        <div className={`col-span-2 flex flex-col items-center justify-center font-black text-center p-2 border-r border-gray-800/20 ${tierInfo.bg}`}>
+                          <span className="text-xl tracking-wider leading-none">{tierInfo.label}</span>
+                          <span className="text-[11px] font-bold mt-1 text-gray-900/80">{tierInfo.name}</span>
+                        </div>
+                        
+                        {/* 오른쪽 가로 정렬 스트리머 카드 슬롯 공간 */}
+                        <div className="col-span-10 p-4 flex flex-wrap gap-3 items-center bg-gray-900/40">
+                          {tierStreamers.length === 0 ? (
+                            <span className="text-xs text-gray-700 font-medium pl-2">현재 해당 규모의 기업 스트리머가 없습니다.</span>
+                          ) : (
+                            tierStreamers.map((st, sIdx) => (
+                              <div 
+                                key={sIdx} 
+                                className="flex items-center space-x-2 bg-gray-800/80 border border-gray-700 px-3 py-2 rounded-xl shadow-sm hover:border-gray-600 transition-all"
+                              >
+                                {st.platform === '치지직' ? (
+                                  <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-500/20">CH</span>
+                                ) : (
+                                  <span className="text-[10px] font-black text-sky-400 bg-sky-950 px-1.5 py-0.5 rounded border border-sky-500/20">SP</span>
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-gray-200">{st.name}</span>
+                                  <span className="text-[10px] font-mono font-medium text-amber-400/90">{st.viewers.toLocaleString()}명</span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                </div>
+
+                {/* [수정 완료] 하단 범례판 가이드도 대표님 지침서 기준으로 전면 튜닝 */}
+                <div className="mt-6 bg-gray-800/40 border border-gray-800 rounded-xl p-4 text-xs text-gray-500 space-y-1">
+                  <p className="font-bold text-gray-400 mb-1">💡 기업 규모 티어 실시간 Fact 기준표:</p>
+                  <p>• 👑 S 티어 (대기업): 10,000명 이상 | • 🥇 A 티어 (중견기업): 7,000명 이상 ~ 10,000명 미만</p>
+                  <p>• 🥈 B 티어 (중기업): 3,000명 이상 ~ 7,000명 미만 | • 🥉 C 티어 (소기업): 1,000명 이상 ~ 3,000명 미만</p>
+                  <p>• 🎖️ D 티어 (스타트업): 300명 이상 ~ 1,000명 미만 | • 🌱 F 티어 (꿈나무): 300명 미만</p>
+                </div>
+              </div>
+            )}
+
+            {/* 💬 3 & 4. 커뮤니티 게시판 공용 출력 구역 */}
             {(activeTab === 'free' || activeTab === 'recommend') && (
               <div>
                 <header className="mb-6">
-                  <h2 className="text-2xl font-black">
-                    {activeTab === 'free' ? '💬 자유게시판' : '👍 스트리머 추천 게시판'}
-                  </h2>
-                  <p className="text-gray-400 mt-1 text-sm">
-                    {activeTab === 'free' ? '유저들과 다양한 떡밥으로 자유롭게 소통하는 광장입니다.' : '내가 좋아하는 꿀잼 스트리머나 BJ를 다른 유저들에게 추천해 보세요!'}
-                  </p>
+                  <h2 className="text-2xl font-black">{activeTab === 'free' ? '💬 자유게시판' : '👍 스트리머 추천 게시판'}</h2>
+                  <p className="text-gray-400 mt-1 text-sm">{activeTab === 'free' ? '유저들과 다양한 떡밥으로 자유롭게 소통하는 광장입니다.' : '내가 좋아하는 꿀잼 스트리머나 BJ를 다른 유저들에게 추천해 보세요!'}</p>
                 </header>
 
-                {/* 검색창 및 서브 탭 */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-gray-800 pb-4">
                   <div className="flex space-x-2">
                     <button onClick={() => setSubTab('all')} className={`px-4 py-1.5 rounded-lg text-sm font-bold ${subTab === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}>전체글</button>
@@ -285,7 +343,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* 글쓰기 폼 */}
                 <form onSubmit={handleCreatePost} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 mb-8 space-y-4 shadow-xl">
                   <div className="grid grid-cols-3 gap-4">
                     <input type="text" placeholder="익명 닉네임" value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
@@ -293,12 +350,9 @@ export default function Home() {
                     <input type="text" placeholder={activeTab === 'free' ? "글 제목을 입력하세요" : "추천할 스트리머 이름과 제목 입력"} value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
                   </div>
                   <textarea placeholder={activeTab === 'free' ? "자유로운 이야기를 적어주세요!" : "스트리머의 방송 시간, 주요 컨텐츠, 추천하는 이유를 매력 있게 적어보세요!"} rows={2} value={newContent} onChange={(e) => setNewContent(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 resize-none"></textarea>
-                  <div className="text-right">
-                    <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm shadow-md">글 등록하기 📝</button>
-                  </div>
+                  <div className="text-right"><button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm shadow-md">글 등록하기 📝</button></div>
                 </form>
 
-                {/* 게시글 목록 */}
                 <div className="space-y-6">
                   {currentPosts.length === 0 ? (
                     <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl text-gray-500 text-sm">해당 게시판에 조건과 일치하는 글이 아직 없습니다.</div>
@@ -317,16 +371,13 @@ export default function Home() {
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <button onClick={() => handleLike(post.id, post.likes || 0)} className="bg-gray-900 border border-gray-700 hover:border-blue-500 px-3 py-1.5 rounded-xl text-sm flex items-center space-x-1">
-                              <span>👍</span><span>{post.likes || 0}</span>
-                            </button>
+                            <button onClick={() => handleLike(post.id, post.likes || 0)} className="bg-gray-900 border border-gray-700 hover:border-blue-500 px-3 py-1.5 rounded-xl text-sm flex items-center space-x-1"><span>👍</span><span>{post.likes || 0}</span></button>
                             <button onClick={() => handleDeletePost(post.id, post.password)} className="bg-gray-900/50 border border-gray-800 hover:border-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-xl text-xs text-gray-500 transition-all">삭제 🗑️</button>
                           </div>
                         </div>
 
                         <p className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-900/30 p-3 rounded-xl border border-gray-800/50">{post.content}</p>
 
-                        {/* 댓글 파트 */}
                         <div className="border-t border-gray-800/60 pt-3 mt-2 space-y-3">
                           <h4 className="text-xs font-bold text-blue-400 px-1">댓글 목록</h4>
                           <div className="space-y-2">
@@ -347,7 +398,6 @@ export default function Home() {
                               ))
                             )}
                           </div>
-
                           <div className="grid grid-cols-12 gap-2 pt-2">
                             <input type="text" placeholder="닉네임" value={commentInputs[post.id]?.author || ''} onChange={(e) => handleCommentInputChange(post.id, 'author', e.target.value)} className="col-span-3 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none" />
                             <input type="password" placeholder="암호" value={commentInputs[post.id]?.password || ''} onChange={(e) => handleCommentInputChange(post.id, 'password', e.target.value)} className="col-span-2 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none" />
@@ -371,7 +421,6 @@ export default function Home() {
                     <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-2.5 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 transition-all">▶</button>
                   </div>
                 )}
-
               </div>
             )}
 
