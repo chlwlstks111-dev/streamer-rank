@@ -35,7 +35,6 @@ interface Comment {
 }
 
 export default function Home() {
-  // 'ranking' = 실시간 순위, 'free' = 자유게시판, 'recommend' = 스트리머 추천 (tier 삭제 완료)
   const [activeTab, setActiveTab] = useState<'ranking' | 'free' | 'recommend'>('ranking');
   const [subTab, setSubTab] = useState<'all' | 'concept'>('all');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -44,6 +43,14 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🥊 플랫폼별 실시간 시청자 통계 상태 추가
+  const [platformStats, setPlatformStats] = useState({
+    chzzkTotal: 0,
+    soopTotal: 0,
+    chzzkPercentage: 50,
+    soopPercentage: 50
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -56,9 +63,37 @@ export default function Home() {
 
   const [commentInputs, setCommentInputs] = useState<{[key: number]: { author: string, content: string, password: string }}>({});
 
+  // 🧮 스트리머 데이터를 가져온 뒤 플랫폼별 시청자 수 총합 및 비율 실시간 계산 엔진
   const fetchStreamers = async () => {
     const { data, error } = await supabase.from('streamers').select('*').order('viewers', { ascending: false });
-    if (!error && data) setStreamers(data);
+    if (!error && data) {
+      setStreamers(data);
+
+      // 플랫폼별 시청자 합산 계산 시작 (팩트체크)
+      let chzzkSum = 0;
+      let soopSum = 0;
+
+      data.forEach((s) => {
+        if (s.platform === '치지직') chzzkSum += s.viewers;
+        if (s.platform === 'SOOP') soopSum += s.viewers;
+      });
+
+      const total = chzzkSum + soopSum;
+      let chzzkPct = 50;
+      let soopPct = 50;
+
+      if (total > 0) {
+        chzzkPct = Math.round((chzzkSum / total) * 100);
+        soopPct = 100 - chzzkPct;
+      }
+
+      setPlatformStats({
+        chzzkTotal: chzzkSum,
+        soopTotal: soopSum,
+        chzzkPercentage: chzzkPct,
+        soopPercentage: soopPct
+      });
+    }
   };
 
   const fetchPosts = async () => {
@@ -107,10 +142,7 @@ export default function Home() {
     });
 
     if (!error) {
-      setNewTitle('');
-      setNewContent('');
-      setNewAuthor('');
-      setNewPassword('');
+      setNewTitle(''); setNewContent(''); setNewAuthor(''); setNewPassword('');
       fetchPosts();
       alert('글이 성공적으로 등록되었습니다! 🚀');
     }
@@ -170,7 +202,6 @@ export default function Home() {
   const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
 
-  // 공통 메뉴 컴포넌트 (티어표 제거 반영)
   const NavigationMenu = () => (
     <nav className="space-y-2">
       <button onClick={() => setActiveTab('ranking')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'ranking' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900'}`}>
@@ -188,15 +219,15 @@ export default function Home() {
   return (
     <div className="flex min-h-screen bg-gray-900 text-white font-sans flex-col md:flex-row">
       
-      {/* 📱 모바일 상단 미니 헤더 */}
+      {/* 📱 모바일 헤더 */}
       <div className="md:hidden flex items-center justify-between bg-gray-950 p-4 border-b border-gray-800 sticky top-0 z-50">
         <h1 className="text-lg font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">STREAMER RANK</h1>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-xl p-1 focus:outline-none">
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-xl p-1">
           {isMobileMenuOpen ? '❌' : '☰'}
         </button>
       </div>
 
-      {/* 🧭 PC 전용 고정 사이드바 메뉴판 */}
+      {/* 🧭 PC 고정 사이드바 */}
       <aside className="hidden md:flex w-64 bg-gray-950 border-r border-gray-800 p-6 flex flex-col justify-between h-screen sticky top-0">
         <div>
           <div className="mb-10">
@@ -208,7 +239,7 @@ export default function Home() {
         <div className="text-xs text-gray-600 border-t border-gray-900 pt-4">© 2026 Streamer Rank.</div>
       </aside>
 
-      {/* 🧭 모바일 전용 드롭다운 메뉴판 */}
+      {/* 🧭 모바일 드롭다운 메뉴 */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-950 border-b border-gray-800 p-4 space-y-4 sticky top-[57px] z-40">
           <NavigationMenu />
@@ -220,8 +251,43 @@ export default function Home() {
         {loading ? (
           <div className="flex h-64 items-center justify-center text-xl font-bold animate-pulse text-gray-500">포털 기지 연결 중...</div>
         ) : (
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto space-y-8">
             
+            {/* 🥊 [독점 무기 가동] 실시간 플랫폼 체급 대항전 게이지 전광판 (메인 최상단 배치) */}
+            <section className="bg-gray-950 p-5 rounded-2xl border border-gray-800 shadow-2xl space-y-4">
+              <div className="flex justify-between items-center text-xs md:text-sm font-black tracking-wide">
+                <div className="flex items-center space-x-2 text-emerald-400 animate-pulse">
+                  <span>🟢 CHZZK 실시간 체급</span>
+                  <span className="font-mono bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded text-xs">
+                    {platformStats.chzzkTotal.toLocaleString()}명
+                  </span>
+                </div>
+                <div className="text-gray-500 text-[11px] font-bold">VS 플랫폼 실시간 점유율</div>
+                <div className="flex items-center space-x-2 text-sky-400 animate-pulse">
+                  <span className="font-mono bg-sky-950/60 border border-sky-500/20 px-2 py-0.5 rounded text-xs">
+                    {platformStats.soopTotal.toLocaleString()}명
+                  </span>
+                  <span>SOOP 실시간 체급 🔵</span>
+                </div>
+              </div>
+
+              {/* 하이테크 반응형 게이지 바 대치 구도 */}
+              <div className="w-full h-5 bg-gray-800 rounded-full overflow-hidden flex border border-gray-700/50 shadow-inner relative">
+                <div 
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full flex items-center justify-start pl-3 text-[10px] font-black text-gray-950 transition-all duration-700"
+                  style={{ width: `${platformStats.chzzkPercentage}%` }}
+                >
+                  {platformStats.chzzkPercentage > 15 && `${platformStats.chzzkPercentage}%`}
+                </div>
+                <div 
+                  className="bg-gradient-to-r from-sky-400 to-sky-600 h-full flex items-center justify-end pr-3 text-[10px] font-black text-white transition-all duration-700"
+                  style={{ width: `${platformStats.soopPercentage}%` }}
+                >
+                  {platformStats.soopPercentage > 15 && `${platformStats.soopPercentage}%`}
+                </div>
+              </div>
+            </section>
+
             {/* 📊 1. 실시간 순위 표 */}
             {activeTab === 'ranking' && (
               <div className="space-y-4">
