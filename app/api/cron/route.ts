@@ -8,14 +8,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function GET() {
-  console.log('🤖 [Vercel 클라우드 로봇] 24시간 자동화 전수 수집 스케줄러 가동...');
+  console.log('🤖 [방화벽 우회 모드] Vercel 클라우드 로봇 가동...');
   let chzzkStreamers: any[] = [];
   let soopStreamers: any[] = [];
 
-  // 1. 🟢 치지직 상위 50명 수집
+  // 1. 🟢 치지직 상위 50명 수集
   try {
     const chzzkResponse = await axios.get('https://api.chzzk.naver.com/service/v1/lives?size=50&sortType=POPULAR', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
     });
     if (chzzkResponse.data?.content?.data) {
       chzzkResponse.data.content.data.forEach((stream: any) => {
@@ -31,13 +31,18 @@ export async function GET() {
     console.error('❌ 치지직 백엔드 수집 실패:', err.message);
   }
 
-  // 2. 🔵 SOOP 상위 50명 수집
+  // 2. 🔵 SOOP 상위 50명 수집 (방화벽 통과용 헤더 전면 강화)
   try {
     const soopResponse = await axios.get('https://live.sooplive.co.kr/api/main_broad_list_api.php', {
       params: { selectType: 'action', pageKey: 'main' },
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.sooplive.co.kr/'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Referer': 'https://www.sooplive.co.kr/',
+        'Origin': 'https://www.sooplive.co.kr',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     });
     if (soopResponse.data?.broad) {
@@ -72,7 +77,7 @@ export async function GET() {
           tier: s.viewers >= 10000 ? 'S' : s.viewers >= 3000 ? 'A' : 'B'
         }))
       );
-      return NextResponse.json({ success: true, count: finalStreamers.length });
+      return NextResponse.json({ success: true, count: finalStreamers.length, chzzk: chzzkStreamers.length, soop: soopStreamers.length });
     } catch (supabaseErr: any) {
       return NextResponse.json({ success: false, error: supabaseErr.message }, { status: 500 });
     }
