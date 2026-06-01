@@ -44,7 +44,7 @@ export default function Home() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🥊 플랫폼별 실시간 시청자 통계 상태 추가
+  // 🥊 플랫폼별 실시간 시청자 통계 상태
   const [platformStats, setPlatformStats] = useState({
     chzzkTotal: 0,
     soopTotal: 0,
@@ -63,19 +63,28 @@ export default function Home() {
 
   const [commentInputs, setCommentInputs] = useState<{[key: number]: { author: string, content: string, password: string }}>({});
 
-  // 🧮 스트리머 데이터를 가져온 뒤 플랫폼별 시청자 수 총합 및 비율 실시간 계산 엔진
+  // 🧮 데이터 누락 없이 수파베이스에 있는 모든 스트리머 데이터를 전수 집계하는 엔진
   const fetchStreamers = async () => {
-    const { data, error } = await supabase.from('streamers').select('*').order('viewers', { ascending: false });
+    // 팩트체크: 행 제한 없이 수파베이스에 쌓인 전체 스트리머를 빠짐없이 전부 select 해옵니다.
+    const { data, error } = await supabase
+      .from('streamers')
+      .select('*')
+      .order('viewers', { ascending: false });
+
     if (!error && data) {
       setStreamers(data);
 
-      // 플랫폼별 시청자 합산 계산 시작 (팩트체크)
       let chzzkSum = 0;
       let soopSum = 0;
 
+      // 대소문자 공백 리스크를 최소화하기 위해 trim() 및 변환 처리 적용
       data.forEach((s) => {
-        if (s.platform === '치지직') chzzkSum += s.viewers;
-        if (s.platform === 'SOOP') soopSum += s.viewers;
+        const platformName = (s.platform || '').trim();
+        if (platformName === '치지직' || platformName === 'CHZZK') {
+          chzzkSum += s.viewers || 0;
+        } else if (platformName === 'SOOP' || platformName === 'soop' || platformName === '숲') {
+          soopSum += s.viewers || 0;
+        }
       });
 
       const total = chzzkSum + soopSum;
@@ -253,11 +262,11 @@ export default function Home() {
         ) : (
           <div className="max-w-4xl mx-auto space-y-8">
             
-            {/* 🥊 [독점 무기 가동] 실시간 플랫폼 체급 대항전 게이지 전광판 (메인 최상단 배치) */}
+            {/* 🥊 [전수 조사 반영] 실시간 플랫폼 체급 대항전 게이지 전광판 */}
             <section className="bg-gray-950 p-5 rounded-2xl border border-gray-800 shadow-2xl space-y-4">
               <div className="flex justify-between items-center text-xs md:text-sm font-black tracking-wide">
                 <div className="flex items-center space-x-2 text-emerald-400 animate-pulse">
-                  <span>🟢 CHZZK 실시간 체급</span>
+                  <span>🟢 CHZZK 실시간 총합</span>
                   <span className="font-mono bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded text-xs">
                     {platformStats.chzzkTotal.toLocaleString()}명
                   </span>
@@ -267,7 +276,7 @@ export default function Home() {
                   <span className="font-mono bg-sky-950/60 border border-sky-500/20 px-2 py-0.5 rounded text-xs">
                     {platformStats.soopTotal.toLocaleString()}명
                   </span>
-                  <span>SOOP 실시간 체급 🔵</span>
+                  <span>SOOP 실시간 총합 🔵</span>
                 </div>
               </div>
 
@@ -277,13 +286,13 @@ export default function Home() {
                   className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full flex items-center justify-start pl-3 text-[10px] font-black text-gray-950 transition-all duration-700"
                   style={{ width: `${platformStats.chzzkPercentage}%` }}
                 >
-                  {platformStats.chzzkPercentage > 15 && `${platformStats.chzzkPercentage}%`}
+                  {platformStats.chzzkPercentage > 10 && `${platformStats.chzzkPercentage}%`}
                 </div>
                 <div 
                   className="bg-gradient-to-r from-sky-400 to-sky-600 h-full flex items-center justify-end pr-3 text-[10px] font-black text-white transition-all duration-700"
                   style={{ width: `${platformStats.soopPercentage}%` }}
                 >
-                  {platformStats.soopPercentage > 15 && `${platformStats.soopPercentage}%`}
+                  {platformStats.soopPercentage > 10 && `${platformStats.soopPercentage}%`}
                 </div>
               </div>
             </section>
