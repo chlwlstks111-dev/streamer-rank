@@ -22,7 +22,7 @@ async function fetchLiveStreamers() {
     if (chzzkResponse.data?.content?.data) {
       chzzkResponse.data.content.data.forEach(stream => {
         allStreamers.push({
-          name: stream.liveChannel?.channelName || stream.liveTitle || '치지직 스트리머',
+          name: stream.channel?.channelName || stream.liveTitle || '치지직 스트리머',
           platform: '치지직',
           viewers: parseInt(stream.concurrentUserCount) || 0,
           current_game: stream.liveCategoryValue || '종합 게임'
