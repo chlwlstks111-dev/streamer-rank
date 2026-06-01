@@ -39,16 +39,23 @@ export default function Home() {
   
   const [streamers, setStreamers] = useState<Streamer[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]); // 댓글 상태 추가
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🔍 검색창 상태 추가
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // 🔢 페이지네이션 상태 추가
+  const [currentPage, setCurrentPage] = useState(1);
+  const POSTS_PER_PAGE = 5; // 한 페이지당 보여줄 글의 개수
 
   // 게시글 작성 폼
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [newAuthor, setNewAuthor] = useState('');
-  const [newPassword, setNewPassword] = useState(''); // 게시글 비밀번호 상태
+  const [newPassword, setNewPassword] = useState('');
 
-  // 댓글 작성 폼 (글 ID별로 관리하기 위해 객체/맵 형태로 관리)
+  // 댓글 작성 폼
   const [commentInputs, setCommentInputs] = useState<{[key: number]: { author: string, content: string, password: string }}>({});
 
   const fetchStreamers = async () => {
@@ -81,7 +88,11 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // 📝 1. 게시글 등록 (비밀번호 탑재)
+  // 탭이나 검색어가 바뀌면 페이지를 자동으로 1페이지로 리셋해주는 안전장치
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [subTab, searchQuery]);
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newContent.trim()) return alert('제목과 내용을 입력해주세요!');
@@ -105,10 +116,9 @@ export default function Home() {
     }
   };
 
-  // 🗑️ 2. 본인 글 삭제 기능 (비밀번호 검증)
   const handleDeletePost = async (postId: number, correctPassword?: string) => {
     const inputPassword = prompt('글을 작성할 때 입력했던 비밀번호를 입력하세요:');
-    if (inputPassword === null) return; // 취소 누른 경우
+    if (inputPassword === null) return;
 
     if (inputPassword !== correctPassword) {
       return alert('비밀번호가 일치하지 않습니다. 본인이 쓴 글만 삭제할 수 있습니다! ❌');
@@ -117,12 +127,11 @@ export default function Home() {
     const { error } = await supabase.from('community_posts').delete().eq('id', postId);
     if (!error) {
       fetchPosts();
-      fetchComments(); // 종속된 댓글 새로고침
+      fetchComments();
       alert('게시글이 깔끔하게 삭제되었습니다. 🗑️');
     }
   };
 
-  // 💬 3. 댓글 등록 함수
   const handleCreateComment = async (postId: number) => {
     const input = commentInputs[postId];
     if (!input || !input.content.trim()) return alert('댓글 내용을 입력해주세요!');
@@ -136,15 +145,11 @@ export default function Home() {
     });
 
     if (!error) {
-      setCommentInputs(prev => ({
-        ...prev,
-        [postId]: { author: '', content: '', password: '' }
-      }));
+      setCommentInputs(prev => ({ ...prev, [postId]: { author: '', content: '', password: '' } }));
       fetchComments();
     }
   };
 
-  // 🗑️ 4. 본인 댓글 삭제 기능
   const handleDeleteComment = async (commentId: number, correctPassword?: string) => {
     const inputPassword = prompt('댓글 비밀번호를 입력하세요:');
     if (inputPassword === null) return;
@@ -154,19 +159,13 @@ export default function Home() {
     }
 
     const { error } = await supabase.from('community_comments').delete().eq('id', commentId);
-    if (!error) {
-      fetchComments();
-      alert('댓글이 삭제되었습니다.');
-    }
+    if (!error) fetchComments();
   };
 
   const handleCommentInputChange = (postId: number, field: 'author' | 'content' | 'password', value: string) => {
     setCommentInputs(prev => ({
       ...prev,
-      [postId]: {
-        ...(prev[postId] || { author: '', content: '', password: '' }),
-        [field]: value
-      }
+      [postId]: { ...(prev[postId] || { author: '', content: '', password: '' }), [field]: value }
     }));
   };
 
@@ -175,7 +174,26 @@ export default function Home() {
     if (!error) fetchPosts();
   };
 
-  const filteredPosts = subTab === 'all' ? posts : posts.filter(post => (post.likes || 0) >= 10);
+  // 🔍 1차 필터링: 전체글 / 인기글 구분 후 + 검색어 필터링 결합
+  const filteredPosts = posts
+    .filter(post => subTab === 'all' ? true : (post.likes || 0) >= 10)
+    .filter(post => {
+      const query = searchQuery.toLowerCase().trim();
+      if (!query) return true;
+      return (
+        post.title.toLowerCase().includes(query) ||
+        post.content.toLowerCase().includes(query) ||
+        post.author.toLowerCase().includes(query)
+      );
+    });
+
+  // 🔢 2차 필터링: 현재 페이지에 해당하는 5개의 글만 쪼개기 (수학 공식 계산)
+  const indexOfLastPost = currentPage * POSTS_PER_PAGE;
+  const indexOfFirstPost = indexOfLastPost - POSTS_PER_PAGE;
+  const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
+
+  // 총 페이지 수 계산
+  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-white font-sans">
@@ -202,7 +220,7 @@ export default function Home() {
         <div className="text-xs text-gray-600 border-t border-gray-900 pt-4">© 2026 Streamer Rank.</div>
       </aside>
 
-      {/* 🖥️ 메인 대시보드 */}
+      {/* 🖥_ 메인 대시보드 */}
       <main className="flex-1 p-8 overflow-y-auto">
         {loading ? (
           <div className="flex h-full items-center justify-center text-xl font-bold animate-pulse text-gray-500">포털 기지 연결 중...</div>
@@ -232,23 +250,38 @@ export default function Home() {
               </div>
             )}
 
-            {/* 2️⃣ 커뮤니티 라운지 탭 */}
+            {/* 2️⃣ 통합 커뮤니티 라운지 탭 */}
             {activeTab === 'community' && (
               <div>
                 <header className="mb-6">
                   <h2 className="text-2xl font-black">💬 스트리머 통합 라운지</h2>
                 </header>
 
-                <div className="flex space-x-2 mb-6 border-b border-gray-800 pb-3">
-                  <button onClick={() => setSubTab('all')} className={`px-4 py-1.5 rounded-lg text-sm font-bold ${subTab === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}>전체글</button>
-                  <button onClick={() => setSubTab('concept')} className={`px-4 py-1.5 rounded-lg text-sm font-bold ${subTab === 'concept' ? 'bg-red-950 text-red-400 border border-red-500/30' : 'text-gray-400'}`}>🔥 인기글</button>
+                {/* 🔍 검색창 인프라 구축 구역 */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-gray-800 pb-4">
+                  <div className="flex space-x-2">
+                    <button onClick={() => setSubTab('all')} className={`px-4 py-1.5 rounded-lg text-sm font-bold ${subTab === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}>전체글</button>
+                    <button onClick={() => setSubTab('concept')} className={`px-4 py-1.5 rounded-lg text-sm font-bold ${subTab === 'concept' ? 'bg-red-950 text-red-400 border border-red-500/30' : 'text-gray-400'}`}>🔥 인기글</button>
+                  </div>
+                  
+                  {/* 검색 인풋 필드 */}
+                  <div className="relative w-full md:w-64">
+                    <input
+                      type="text"
+                      placeholder="제목, 내용, 작성자 검색..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-10 pr-4 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-gray-200"
+                    />
+                    <span className="absolute left-3 top-2 text-gray-500 text-xs">🔍</span>
+                  </div>
                 </div>
 
-                {/* 글쓰기 폼 (비밀번호 칸 생성) */}
+                {/* 글쓰기 폼 */}
                 <form onSubmit={handleCreatePost} className="bg-gray-800 p-6 rounded-2xl border border-gray-700 mb-8 space-y-4 shadow-xl">
                   <div className="grid grid-cols-3 gap-4">
                     <input type="text" placeholder="익명 닉네임" value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
-                    <input type="password" placeholder="삭제 비밀번호 (4자리 추천)" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
+                    <input type="password" placeholder="삭제 비밀번호" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
                     <input type="text" placeholder="글 제목을 입력하세요" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500" />
                   </div>
                   <textarea placeholder="자유로운 이야기를 적어주세요!" rows={2} value={newContent} onChange={(e) => setNewContent(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm focus:outline-none focus:border-blue-500 resize-none"></textarea>
@@ -257,12 +290,12 @@ export default function Home() {
                   </div>
                 </form>
 
-                {/* 게시글 리스트 */}
+                {/* 게시글 리스트 (현재 페이지 슬라이스 반영) */}
                 <div className="space-y-6">
-                  {filteredPosts.length === 0 ? (
-                    <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl text-gray-500 text-sm">작성된 글이 없습니다.</div>
+                  {currentPosts.length === 0 ? (
+                    <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl text-gray-500 text-sm">결과에 부합하는 게시글이 존재하지 않습니다.</div>
                   ) : (
-                    filteredPosts.map((post) => (
+                    currentPosts.map((post) => (
                       <div key={post.id} className={`p-5 rounded-2xl border ${post.likes >= 10 ? 'bg-red-950/10 border-red-900/40' : 'bg-gray-800/50 border-gray-800'} space-y-4`}>
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
@@ -275,26 +308,19 @@ export default function Home() {
                               <span>{new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
-                          
-                          {/* 상단 액션 우측 정렬 (추천 & 삭제) */}
                           <div className="flex items-center space-x-2">
                             <button onClick={() => handleLike(post.id, post.likes || 0)} className="bg-gray-900 border border-gray-700 hover:border-blue-500 px-3 py-1.5 rounded-xl text-sm flex items-center space-x-1">
                               <span>👍</span><span>{post.likes || 0}</span>
                             </button>
-                            {/* 🗑️ 내가 쓴 글 삭제 버튼 */}
-                            <button onClick={() => handleDeletePost(post.id, post.password)} className="bg-gray-900/50 border border-gray-800 hover:border-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-xl text-xs text-gray-500 transition-all">
-                              삭제 🗑️
-                            </button>
+                            <button onClick={() => handleDeletePost(post.id, post.password)} className="bg-gray-900/50 border border-gray-800 hover:border-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-xl text-xs text-gray-500 transition-all">삭제 🗑️</button>
                           </div>
                         </div>
 
                         <p className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-900/30 p-3 rounded-xl border border-gray-800/50">{post.content}</p>
 
-                        {/* 💬 하단 구조: 댓글 구역 */}
+                        {/* 댓글 구조 */}
                         <div className="border-t border-gray-800/60 pt-3 mt-2 space-y-3">
                           <h4 className="text-xs font-bold text-blue-400 px-1">댓글 목록</h4>
-                          
-                          {/* 실제 댓글 뿌려주기 */}
                           <div className="space-y-2">
                             {comments.filter(c => c.post_id === post.id).length === 0 ? (
                               <div className="text-xs text-gray-600 px-1">첫 댓글을 달아 분위기를 띄워보세요!</div>
@@ -308,45 +334,17 @@ export default function Home() {
                                     </div>
                                     <p className="text-gray-400 whitespace-pre-wrap">{comment.content}</p>
                                   </div>
-                                  {/* 🗑️ 댓글 삭제 버튼 */}
-                                  <button onClick={() => handleDeleteComment(comment.id, (comment as any).password)} className="text-[10px] text-gray-600 hover:text-red-400 p-1">
-                                    ❌
-                                  </button>
+                                  <button onClick={() => handleDeleteComment(comment.id, (comment as any).password)} className="text-[10px] text-gray-600 hover:text-red-400 p-1">❌</button>
                                 </div>
                               ))
                             )}
                           </div>
 
-                          {/* 댓글 작성 폼 인풋 상자 */}
                           <div className="grid grid-cols-12 gap-2 pt-2">
-                            <input
-                              type="text"
-                              placeholder="닉네임"
-                              value={commentInputs[post.id]?.author || ''}
-                              onChange={(e) => handleCommentInputChange(post.id, 'author', e.target.value)}
-                              className="col-span-3 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                            />
-                            <input
-                              type="password"
-                              placeholder="암호"
-                              value={commentInputs[post.id]?.password || ''}
-                              onChange={(e) => handleCommentInputChange(post.id, 'password', e.target.value)}
-                              className="col-span-2 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                            />
-                            <input
-                              type="text"
-                              placeholder="댓글을 입력하세요..."
-                              value={commentInputs[post.id]?.content || ''}
-                              onChange={(e) => handleCommentInputChange(post.id, 'content', e.target.value)}
-                              className="col-span-5 bg-gray-950 border border-gray-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleCreateComment(post.id)}
-                              className="col-span-2 bg-blue-600/80 hover:bg-blue-600 text-white font-bold rounded-lg text-xs transition-all"
-                            >
-                              🎒 등록
-                            </button>
+                            <input type="text" placeholder="닉네임" value={commentInputs[post.id]?.author || ''} onChange={(e) => handleCommentInputChange(post.id, 'author', e.target.value)} className="col-span-3 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none" />
+                            <input type="password" placeholder="암호" value={commentInputs[post.id]?.password || ''} onChange={(e) => handleCommentInputChange(post.id, 'password', e.target.value)} className="col-span-2 bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none" />
+                            <input type="text" placeholder="댓글을 입력하세요..." value={commentInputs[post.id]?.content || ''} onChange={(e) => handleCommentInputChange(post.id, 'content', e.target.value)} className="col-span-5 bg-gray-950 border border-gray-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none" />
+                            <button type="button" onClick={() => handleCreateComment(post.id)} className="col-span-2 bg-blue-600/80 hover:bg-blue-600 text-white font-bold rounded-lg text-xs transition-all">🎒 등록</button>
                           </div>
                         </div>
 
@@ -354,6 +352,42 @@ export default function Home() {
                     ))
                   )}
                 </div>
+
+                {/* 🔢 페이지네이션 하단 번호 제어기 장착 구역 */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center space-x-2 mt-8 pt-4 border-t border-gray-800">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-2.5 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 transition-all"
+                    >
+                      ◀
+                    </button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg font-mono font-bold text-xs transition-all ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-800/60 border border-gray-800 text-gray-400 hover:border-gray-700 hover:text-gray-200'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-2.5 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-xs text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 transition-all"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                )}
+
               </div>
             )}
 
