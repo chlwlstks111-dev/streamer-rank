@@ -35,9 +35,10 @@ interface Comment {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'ranking' | 'free' | 'recommend' | 'tier'>('ranking');
+  // 'ranking' = 실시간 순위, 'free' = 자유게시판, 'recommend' = 스트리머 추천 (tier 삭제 완료)
+  const [activeTab, setActiveTab] = useState<'ranking' | 'free' | 'recommend'>('ranking');
   const [subTab, setSubTab] = useState<'all' | 'concept'>('all');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 모바일 사이드바 토글 전용
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [streamers, setStreamers] = useState<Streamer[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -87,12 +88,12 @@ export default function Home() {
 
   useEffect(() => {
     setCurrentPage(1);
-    setIsMobileMenuOpen(false); // 메뉴 클릭 시 사이드바 닫기 보장
+    setIsMobileMenuOpen(false);
   }, [activeTab, subTab, searchQuery]);
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeTab === 'ranking' || activeTab === 'tier') return;
+    if (activeTab === 'ranking') return;
     if (!newTitle.trim() || !newContent.trim()) return alert('제목과 내용을 입력해주세요!');
     if (!newPassword.trim()) return alert('삭제용 비밀번호를 입력해주세요!');
 
@@ -169,16 +170,7 @@ export default function Home() {
   const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
 
-  const getCalculatedTier = (viewers: number) => {
-    if (viewers >= 10000) return 'S';
-    if (viewers >= 7000) return 'A';
-    if (viewers >= 3000) return 'B';
-    if (viewers >= 1000) return 'C';
-    if (viewers >= 300) return 'D';
-    return 'NONE';
-  };
-
-  // 공통 메뉴 컴포넌트 (중복 제거용)
+  // 공통 메뉴 컴포넌트 (티어표 제거 반영)
   const NavigationMenu = () => (
     <nav className="space-y-2">
       <button onClick={() => setActiveTab('ranking')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'ranking' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900'}`}>
@@ -190,16 +182,13 @@ export default function Home() {
       <button onClick={() => setActiveTab('recommend')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'recommend' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900'}`}>
         <span>👍</span><span>스트리머를 추천합니다</span>
       </button>
-      <button onClick={() => setActiveTab('tier')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === 'tier' ? 'bg-gradient-to-r from-green-500/20 to-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-900'}`}>
-        <span>👑</span><span>스트리머 티어표</span>
-      </button>
     </nav>
   );
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-white font-sans flex-col md:flex-row">
       
-      {/* 📱 모바일 상단 미니 헤더 상자 (스마트폰에서만 등장) */}
+      {/* 📱 모바일 상단 미니 헤더 */}
       <div className="md:hidden flex items-center justify-between bg-gray-950 p-4 border-b border-gray-800 sticky top-0 z-50">
         <h1 className="text-lg font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">STREAMER RANK</h1>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-xl p-1 focus:outline-none">
@@ -208,7 +197,7 @@ export default function Home() {
       </div>
 
       {/* 🧭 PC 전용 고정 사이드바 메뉴판 */}
-      <aside className="hidden md:flex w-64 bg-gray-950 border-r border-gray-800 p-6 flex-col justify-between h-screen sticky top-0">
+      <aside className="hidden md:flex w-64 bg-gray-950 border-r border-gray-800 p-6 flex flex-col justify-between h-screen sticky top-0">
         <div>
           <div className="mb-10">
             <h1 className="text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">STREAMER RANK</h1>
@@ -219,57 +208,36 @@ export default function Home() {
         <div className="text-xs text-gray-600 border-t border-gray-900 pt-4">© 2026 Streamer Rank.</div>
       </aside>
 
-      {/* 🧭 모바일 전용 드롭다운 토글형 메뉴판 */}
+      {/* 🧭 모바일 전용 드롭다운 메뉴판 */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-gray-950 border-b border-gray-800 p-4 space-y-4 sticky top-[57px] z-40 animate-fadeIn">
+        <div className="md:hidden bg-gray-950 border-b border-gray-800 p-4 space-y-4 sticky top-[57px] z-40">
           <NavigationMenu />
         </div>
       )}
 
-      {/* 🖥️ 메인 대시보드 스크롤 컨테이너 */}
+      {/* 🖥️ 메인 대시보드 */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {loading ? (
           <div className="flex h-64 items-center justify-center text-xl font-bold animate-pulse text-gray-500">포털 기지 연결 중...</div>
         ) : (
           <div className="max-w-4xl mx-auto">
             
-            {/* 📊 1. 실시간 순위 표 (모바일 가로 겹침 완전 방어 완료) */}
+            {/* 📊 1. 실시간 순위 표 */}
             {activeTab === 'ranking' && (
               <div className="space-y-4">
-                <header>
-                  <h2 className="text-xl md:text-2xl font-black">CHZZK & SOOP 실시간 통합 랭킹</h2>
-                </header>
-
+                <header><h2 className="text-xl md:text-2xl font-black">CHZZK & SOOP 실시간 통합 랭킹</h2></header>
                 <div className="bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
-                  {/* PC 버전 전용 헤더 */}
                   <div className="hidden md:grid grid-cols-12 bg-gray-700 p-4 text-sm font-bold text-gray-300 text-center">
                     <div className="col-span-1">순위</div><div className="col-span-2">플랫폼</div><div className="col-span-3 text-left pl-4">스트리머/BJ</div><div className="col-span-4 text-left">방송 제목</div><div className="col-span-2">시청자 수</div>
                   </div>
-
-                  {/* 리스트 본체 (모바일에서는 블록형, PC에서는 행 그리드로 전환하여 겹침 방지) */}
                   <div className="divide-y divide-gray-700">
                     {streamers.map((streamer, index) => (
                       <div key={index} className="flex flex-col md:grid md:grid-cols-12 p-4 md:items-center text-center hover:bg-gray-750 transition-colors gap-2 md:gap-0">
-                        <div className="flex items-center justify-between md:col-span-1 md:justify-center">
-                          <span className="md:hidden text-xs text-gray-500 font-bold">순위</span>
-                          <span className="font-black text-base md:text-lg">{index === 0 ? '👑 1' : index + 1}</span>
-                        </div>
-                        <div className="flex items-center justify-between md:col-span-2 md:justify-center">
-                          <span className="md:hidden text-xs text-gray-500 font-bold">플랫폼</span>
-                          {streamer.platform === '치지직' ? <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30">CHZZK</span> : <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-sky-950 text-sky-400 border border-sky-500/30">SOOP</span>}
-                        </div>
-                        <div className="flex items-center justify-between md:col-span-3 md:text-left md:pl-4">
-                          <span className="md:hidden text-xs text-gray-500 font-bold">스트리머</span>
-                          <span className="font-bold text-gray-100 text-sm md:text-base">{streamer.name}</span>
-                        </div>
-                        <div className="flex flex-col text-left md:col-span-4 bg-gray-900/30 p-2 md:p-0 rounded-lg md:bg-transparent">
-                          <span className="md:hidden text-[10px] text-gray-500 font-bold mb-1">방송 제목</span>
-                          <span className="text-xs md:text-sm text-gray-400 truncate">{streamer.current_game}</span>
-                        </div>
-                        <div className="flex items-center justify-between md:col-span-2 md:justify-center">
-                          <span className="md:hidden text-xs text-gray-500 font-bold">시청자</span>
-                          <span className="font-mono font-bold text-amber-400 text-sm md:text-base">{streamer.viewers.toLocaleString()}명</span>
-                        </div>
+                        <div className="flex items-center justify-between md:col-span-1 md:justify-center"><span className="md:hidden text-xs text-gray-500 font-bold">순위</span><span className="font-black text-base md:text-lg">{index === 0 ? '👑 1' : index + 1}</span></div>
+                        <div className="flex items-center justify-between md:col-span-2 md:justify-center"><span className="md:hidden text-xs text-gray-500 font-bold">플랫폼</span>{streamer.platform === '치지직' ? <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-950 text-emerald-400 border border-emerald-500/30">CHZZK</span> : <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-sky-950 text-sky-400 border border-sky-500/30">SOOP</span>}</div>
+                        <div className="flex items-center justify-between md:col-span-3 md:text-left md:pl-4"><span className="md:hidden text-xs text-gray-500 font-bold">스트리머</span><span className="font-bold text-gray-100 text-sm md:text-base">{streamer.name}</span></div>
+                        <div className="flex flex-col text-left md:col-span-4 bg-gray-900/30 p-2 md:p-0 rounded-lg md:bg-transparent"><span className="md:hidden text-[10px] text-gray-500 font-bold mb-1">방송 제목</span><span className="text-xs md:text-sm text-gray-400 truncate">{streamer.current_game}</span></div>
+                        <div className="flex items-center justify-between md:col-span-2 md:justify-center"><span className="md:hidden text-xs text-gray-500 font-bold">시청자</span><span className="font-mono font-bold text-amber-400 text-sm md:text-base">{streamer.viewers.toLocaleString()}명</span></div>
                       </div>
                     ))}
                   </div>
@@ -277,52 +245,10 @@ export default function Home() {
               </div>
             )}
 
-            {/* 👑 2. 스트리머 티어표 (모바일 카드 가로 스크롤/랩 처리 완료) */}
-            {activeTab === 'tier' && (
-              <div className="space-y-6">
-                <header><h2 className="text-xl md:text-2xl font-black">👑 실시간 스트리머 기업 규모 티어표</h2></header>
-                <div className="bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl divide-y divide-gray-800">
-                  {[
-                    { label: 'S', name: '대기업', bg: 'bg-orange-400 text-gray-950' },
-                    { label: 'A', name: '중견기업', bg: 'bg-amber-200 text-gray-950' },
-                    { label: 'B', name: '중기업', bg: 'bg-yellow-100 text-gray-950' },
-                    { label: 'C', name: '소기업', bg: 'bg-green-400 text-gray-950' },
-                    { label: 'D', name: '스타트업', bg: 'bg-emerald-300 text-gray-950' },
-                  ].map(tierInfo => {
-                    const tierStreamers = streamers.filter(s => getCalculatedTier(s.viewers) === tierInfo.label);
-                    return (
-                      <div key={tierInfo.label} className="flex flex-col md:grid md:grid-cols-12 items-stretch min-h-[5.5rem]">
-                        <div className={`w-full md:col-span-2 flex md:flex-col items-center justify-between md:justify-center font-black text-center p-3 md:p-2 border-b md:border-b-0 md:border-r border-gray-800/20 ${tierInfo.bg}`}>
-                          <span className="text-lg md:text-xl tracking-wider">{tierInfo.label}</span>
-                          <span className="text-[11px] font-bold md:mt-1">{tierInfo.name}</span>
-                        </div>
-                        <div className="w-full md:col-span-10 p-4 flex flex-wrap gap-2.5 items-center bg-gray-900/40">
-                          {tierStreamers.length === 0 ? (
-                            <span className="text-xs text-gray-700 font-medium pl-1">라이브 방송이 없습니다.</span>
-                          ) : (
-                            tierStreamers.map((st, sIdx) => (
-                              <div key={sIdx} className="flex items-center space-x-2 bg-gray-800/80 border border-gray-700 px-2.5 py-1.5 rounded-xl shadow-sm text-xs">
-                                {st.platform === '치지직' ? <span className="text-[9px] font-black text-emerald-400 bg-emerald-950 px-1 py-0.5 rounded">CH</span> : <span className="text-[9px] font-black text-sky-400 bg-sky-950 px-1 py-0.5 rounded">SP</span>}
-                                <div className="flex flex-col"><span className="font-bold text-gray-200">{st.name}</span><span className="text-[10px] font-mono text-amber-400">{st.viewers.toLocaleString()}명</span></div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 💬 3 & 4. 자유게시판 및 추천 게시판 구역 */}
+            {/* 💬 2 & 3. 자유게시판 및 추천 게시판 구역 */}
             {(activeTab === 'free' || activeTab === 'recommend') && (
               <div className="space-y-6">
-                <header>
-                  <h2 className="text-xl md:text-2xl font-black">{activeTab === 'free' ? '💬 자유게시판' : '👍 스트리머 추천 게시판'}</h2>
-                </header>
-
-                {/* 필터 탭 및 검색창 정렬 레이아웃 최적화 */}
+                <header><h2 className="text-xl md:text-2xl font-black">{activeTab === 'free' ? '💬 자유게시판' : '👍 스트리머 추천 게시판'}</h2></header>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-gray-800 pb-4">
                   <div className="flex space-x-2">
                     <button onClick={() => setSubTab('all')} className={`px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-bold ${subTab === 'all' ? 'bg-gray-700 text-white' : 'text-gray-400'}`}>전체글</button>
@@ -334,7 +260,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* 글쓰기 인풋창 모바일 세로 배치 자동 변환 */}
                 <form onSubmit={handleCreatePost} className="bg-gray-800 p-4 md:p-6 rounded-2xl border border-gray-700 space-y-3 md:space-y-4 shadow-xl">
                   <div className="flex flex-col md:grid md:grid-cols-3 gap-2.5 md:gap-4">
                     <input type="text" placeholder="익명 닉네임" value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-xs md:text-sm focus:outline-none" />
@@ -345,7 +270,6 @@ export default function Home() {
                   <div className="text-right"><button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs md:text-sm shadow-md">글 등록하기 📝</button></div>
                 </form>
 
-                {/* 게시글 목록 및 내장형 모바일 대댓글 폼 */}
                 <div className="space-y-4">
                   {currentPosts.length === 0 ? (
                     <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl text-gray-500 text-xs">작성된 게시글이 존재하지 않습니다.</div>
@@ -371,22 +295,17 @@ export default function Home() {
 
                         <p className="text-xs md:text-sm text-gray-300 whitespace-pre-wrap bg-gray-900/30 p-3 rounded-xl border border-gray-800/50 break-all">{post.content}</p>
 
-                        {/* 댓글 리스트 모바일 컴팩트 처리 */}
                         <div className="border-t border-gray-800/60 pt-3 space-y-2">
                           <h4 className="text-[11px] font-bold text-blue-400 px-1">댓글</h4>
                           <div className="space-y-1.5">
                             {comments.filter(c => c.post_id === post.id).map((comment) => (
                               <div key={comment.id} className="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800/80 flex justify-between items-start text-[11px] gap-2">
-                                <div className="space-y-0.5 max-w-[90%] break-all">
-                                  <span className="font-bold text-gray-300 mr-2">{comment.author}</span>
-                                  <p className="text-gray-400 inline">{comment.content}</p>
-                                </div>
+                                <div className="space-y-0.5 max-w-[90%] break-all"><span className="font-bold text-gray-300 mr-2">{comment.author}</span><p className="text-gray-400 inline">{comment.content}</p></div>
                                 <button onClick={() => handleDeleteComment(comment.id, (comment as any).password)} className="text-gray-600 hover:text-red-400 text-[9px] pt-0.5">❌</button>
                               </div>
                             ))}
                           </div>
 
-                          {/* 댓글 등록칸 세로 겹침 방지형 그리드 배치 */}
                           <div className="flex flex-col gap-1.5 pt-2">
                             <div className="grid grid-cols-2 gap-1.5">
                               <input type="text" placeholder="닉네임" value={commentInputs[post.id]?.author || ''} onChange={(e) => handleCommentInputChange(post.id, 'author', e.target.value)} className="bg-gray-950 border border-gray-800 rounded-lg px-2 py-1 text-[11px]" />
