@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import axios from 'axios'; // 🟢 react에서 axios 패키지로 올바르게 수정 완료!
 
 interface Streamer {
   name: string;
@@ -43,7 +43,7 @@ export default function Home() {
         });
       }
     } catch (err) {
-      console.error('치지직 로딩 실패:', err);
+      console.error('치지직 API 로딩 실패:', err);
     }
 
     // 2. 🔵 SOOP 실시간 인기 방송 상위 50개 호출
@@ -66,7 +66,7 @@ export default function Home() {
           });
         });
         
-        // 시청자 순 정렬 후 정확히 상위 인기 방송 50개 선택 및 합산
+        // 시청자 순 정렬 후 정확히 상위 50개만 컷 및 합산
         tempSoop.sort((a, b) => b.viewers - a.viewers);
         const top50Soop = tempSoop.slice(0, 50);
         top50Soop.forEach(s => { soopSum += s.viewers; });
@@ -74,7 +74,7 @@ export default function Home() {
         combinedList = [...combinedList, ...top50Soop];
       }
     } catch (err) {
-      console.error('SOOP 로딩 실패:', err);
+      console.error('SOOP API 로딩 실패:', err);
     }
 
     // 3. ⚖️ 종합 상위 100명 재정렬 및 점유율 계산
@@ -95,19 +95,16 @@ export default function Home() {
 
   useEffect(() => {
     fetchRankings();
-    const interval = setInterval(fetchRankings, 15000); // 15초마다 유저 화면 자동 최신화
+    const interval = setInterval(fetchRankings, 15000); // 15초마다 자동 갱신
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="flex min-h-screen bg-gray-900 text-white font-sans flex-col md:flex-row">
-      
-      {/* 모바일 상단 바 */}
       <div className="md:hidden flex items-center justify-between bg-gray-950 p-4 border-b border-gray-800 sticky top-0 z-50">
         <h1 className="text-lg font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">STREAMER RANK</h1>
       </div>
 
-      {/* 데스크톱 사이드바 */}
       <aside className="hidden md:flex w-64 bg-gray-950 border-r border-gray-800 p-6 flex flex-col justify-between h-screen sticky top-0">
         <div>
           <div className="mb-10">
@@ -123,14 +120,13 @@ export default function Home() {
         <div className="text-xs text-gray-600 border-t border-gray-900 pt-4">© 2026 Streamer Rank.</div>
       </aside>
 
-      {/* 메인 랭킹 구역 */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-xl font-bold animate-pulse text-gray-500">전광판 명단 리빌딩 중...</div>
+          <div className="flex h-64 items-center justify-center text-xl font-bold animate-pulse text-gray-500">실시간 데이터 수집 중...</div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
             
-            {/* 📊 상단 대항전 지표 (SOOP 0명 버그 영구 봉인) */}
+            {/* 📊 상단 전광판 대항전 지표 */}
             <section className="bg-gray-950 p-5 rounded-2xl border border-gray-800 shadow-2xl space-y-4">
               <div className="flex justify-between items-center text-xs md:text-sm font-black tracking-wide">
                 <div className="flex items-center space-x-2 text-emerald-400">
