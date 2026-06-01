@@ -188,14 +188,14 @@ export default function Home() {
   const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
 
-  // 🧮 [수정 완료] 대표님이 새로 설계하신 시청자 수 티어 연산 조건 매칭
+  // 🧮 300명 미만은 티어 분류에서 아예 제외 처리
   const getCalculatedTier = (viewers: number) => {
     if (viewers >= 10000) return 'S';
     if (viewers >= 7000) return 'A';
     if (viewers >= 3000) return 'B';
     if (viewers >= 1000) return 'C';
     if (viewers >= 300) return 'D';
-    return 'F';
+    return 'NONE'; // 👈 F등급 대신 노출 제외 플래그값 부여
   };
 
   return (
@@ -256,7 +256,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* 👑 2. 스트리머 티어표 레이아웃 구역 (대표님 오더 기준 적용 완료) */}
+            {/* 👑 2. 스트리머 티어표 (F티어 싹 삭제 완료) */}
             {activeTab === 'tier' && (
               <div>
                 <header className="mb-8">
@@ -266,35 +266,29 @@ export default function Home() {
 
                 <div className="bg-gray-950 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl divide-y divide-gray-800">
                   
-                  {/* [수정 완료] 대표님이 커스텀 하신 명칭과 매칭 데이터 세팅 */}
+                  {/* ✂️ [수정 완료] 리스트에서 F등급 항목 완전 제외 */}
                   {[
                     { label: 'S', name: '대기업', bg: 'bg-orange-400 text-gray-950' },
                     { label: 'A', name: '중견기업', bg: 'bg-amber-200 text-gray-950' },
                     { label: 'B', name: '중기업', bg: 'bg-yellow-100 text-gray-950' },
                     { label: 'C', name: '소기업', bg: 'bg-green-400 text-gray-950' },
                     { label: 'D', name: '스타트업', bg: 'bg-emerald-300 text-gray-950' },
-                    { label: 'F', name: '꿈나무', bg: 'bg-sky-400 text-gray-950' },
                   ].map(tierInfo => {
                     const tierStreamers = streamers.filter(s => getCalculatedTier(s.viewers) === tierInfo.label);
 
                     return (
                       <div key={tierInfo.label} className="grid grid-cols-12 items-stretch min-h-[5.5rem]">
-                        {/* [수정 완료] 왼쪽 계급 표지판에 알파벳 + 지정 명칭 추가 결합 */}
                         <div className={`col-span-2 flex flex-col items-center justify-center font-black text-center p-2 border-r border-gray-800/20 ${tierInfo.bg}`}>
                           <span className="text-xl tracking-wider leading-none">{tierInfo.label}</span>
                           <span className="text-[11px] font-bold mt-1 text-gray-900/80">{tierInfo.name}</span>
                         </div>
                         
-                        {/* 오른쪽 가로 정렬 스트리머 카드 슬롯 공간 */}
                         <div className="col-span-10 p-4 flex flex-wrap gap-3 items-center bg-gray-900/40">
                           {tierStreamers.length === 0 ? (
                             <span className="text-xs text-gray-700 font-medium pl-2">현재 해당 규모의 기업 스트리머가 없습니다.</span>
                           ) : (
                             tierStreamers.map((st, sIdx) => (
-                              <div 
-                                key={sIdx} 
-                                className="flex items-center space-x-2 bg-gray-800/80 border border-gray-700 px-3 py-2 rounded-xl shadow-sm hover:border-gray-600 transition-all"
-                              >
+                              <div key={sIdx} className="flex items-center space-x-2 bg-gray-800/80 border border-gray-700 px-3 py-2 rounded-xl shadow-sm hover:border-gray-600 transition-all">
                                 {st.platform === '치지직' ? (
                                   <span className="text-[10px] font-black text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-500/20">CH</span>
                                 ) : (
@@ -314,12 +308,12 @@ export default function Home() {
 
                 </div>
 
-                {/* [수정 완료] 하단 범례판 가이드도 대표님 지침서 기준으로 전면 튜닝 */}
+                {/* ✂️ [수정 완료] 하단 가이드 문구에서도 F티어(꿈나무) 문항 영구 삭제 */}
                 <div className="mt-6 bg-gray-800/40 border border-gray-800 rounded-xl p-4 text-xs text-gray-500 space-y-1">
                   <p className="font-bold text-gray-400 mb-1">💡 기업 규모 티어 실시간 Fact 기준표:</p>
                   <p>• 👑 S 티어 (대기업): 10,000명 이상 | • 🥇 A 티어 (중견기업): 7,000명 이상 ~ 10,000명 미만</p>
                   <p>• 🥈 B 티어 (중기업): 3,000명 이상 ~ 7,000명 미만 | • 🥉 C 티어 (소기업): 1,000명 이상 ~ 3,000명 미만</p>
-                  <p>• 🎖️ D 티어 (스타트업): 300명 이상 ~ 1,000명 미만 | • 🌱 F 티어 (꿈나무): 300명 미만</p>
+                  <p>• 🎖️ D 티어 (스타트업): 300명 이상 ~ 1,000명 미만 (300명 미만 구간은 노출되지 않습니다.)</p>
                 </div>
               </div>
             )}
