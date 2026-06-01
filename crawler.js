@@ -25,7 +25,7 @@ async function fetchLiveStreamers() {
           name: stream.channel?.channelName || stream.liveTitle || '치지직 스트리머',
           platform: '치지직',
           viewers: parseInt(stream.concurrentUserCount) || 0,
-          current_game: stream.liveCategoryValue || '종합 게임'
+          current_game: stream.liveTitle || '라이브 방송' // 👈 [수정 완료] 기존 카테고리 대신 진짜 방송 제목 수집
         });
       });
     }
@@ -35,7 +35,6 @@ async function fetchLiveStreamers() {
 
   // 2. 🔵 숲 (SOOP) 실시간 데이터 수집 (메인 화면 실제 호출 API 주소 탑재)
   try {
-    // [팩트체크] 숲(SOOP) PC/모바일 메인 페이지가 라이브 목록을 렌더링할 때 사용하는 진짜 실시간 API 경로입니다.
     const soopResponse = await axios.get('https://live.sooplive.co.kr/api/main_broad_list_api.php', {
       params: {
         selectType: 'action',
@@ -47,14 +46,13 @@ async function fetchLiveStreamers() {
       }
     });
 
-    // 숲의 실제 데이터 응답 규격(broad)에 맞춰 정밀 파싱합니다.
     if (soopResponse.data?.broad) {
       soopResponse.data.broad.forEach(stream => {
         allStreamers.push({
           name: stream.user_nick || '숲 BJ',
           platform: '숲(SOOP)',
           viewers: parseInt(stream.total_view_cnt) || 0,
-          current_game: stream.game_name || '종합 방송'
+          current_game: stream.broad_title || '라이브 방송' // 👈 [수정 완료] 기존 카테고리 대신 진짜 방송 제목 수집
         });
       });
     }

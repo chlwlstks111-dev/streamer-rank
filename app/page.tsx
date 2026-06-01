@@ -59,7 +59,7 @@ export default function Home() {
               <div className="col-span-1">순위</div>
               <div className="col-span-2">플랫폼</div>
               <div className="col-span-3 text-left pl-4">스트리머/BJ</div>
-              <div className="col-span-4 text-left">방송 제목 (카테고리)</div>
+              <div className="col-span-4 text-left">방송 제목</div>
               <div className="col-span-2">시청자 수</div>
             </div>
 
