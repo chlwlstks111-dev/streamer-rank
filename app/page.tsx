@@ -44,7 +44,6 @@ export default function Home() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🥊 플랫폼별 실시간 시청자 통계 상태
   const [platformStats, setPlatformStats] = useState({
     chzzkTotal: 0,
     soopTotal: 0,
@@ -63,13 +62,8 @@ export default function Home() {
 
   const [commentInputs, setCommentInputs] = useState<{[key: number]: { author: string, content: string, password: string }}>({});
 
-  // 🧮 데이터 누락 없이 수파베이스에 있는 모든 스트리머 데이터를 전수 집계하는 엔진
   const fetchStreamers = async () => {
-    // 팩트체크: 행 제한 없이 수파베이스에 쌓인 전체 스트리머를 빠짐없이 전부 select 해옵니다.
-    const { data, error } = await supabase
-      .from('streamers')
-      .select('*')
-      .order('viewers', { ascending: false });
+    const { data, error } = await supabase.from('streamers').select('*').order('viewers', { ascending: false });
 
     if (!error && data) {
       setStreamers(data);
@@ -77,12 +71,11 @@ export default function Home() {
       let chzzkSum = 0;
       let soopSum = 0;
 
-      // 대소문자 공백 리스크를 최소화하기 위해 trim() 및 변환 처리 적용
       data.forEach((s) => {
         const platformName = (s.platform || '').trim();
-        if (platformName === '치지직' || platformName === 'CHZZK') {
+        if (platformName === '치지직') {
           chzzkSum += s.viewers || 0;
-        } else if (platformName === 'SOOP' || platformName === 'soop' || platformName === '숲') {
+        } else if (platformName === 'SOOP') {
           soopSum += s.viewers || 0;
         }
       });
@@ -228,15 +221,11 @@ export default function Home() {
   return (
     <div className="flex min-h-screen bg-gray-900 text-white font-sans flex-col md:flex-row">
       
-      {/* 📱 모바일 헤더 */}
       <div className="md:hidden flex items-center justify-between bg-gray-950 p-4 border-b border-gray-800 sticky top-0 z-50">
         <h1 className="text-lg font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500">STREAMER RANK</h1>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-xl p-1">
-          {isMobileMenuOpen ? '❌' : '☰'}
-        </button>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-xl p-1">📂</button>
       </div>
 
-      {/* 🧭 PC 고정 사이드바 */}
       <aside className="hidden md:flex w-64 bg-gray-950 border-r border-gray-800 p-6 flex flex-col justify-between h-screen sticky top-0">
         <div>
           <div className="mb-10">
@@ -248,39 +237,40 @@ export default function Home() {
         <div className="text-xs text-gray-600 border-t border-gray-900 pt-4">© 2026 Streamer Rank.</div>
       </aside>
 
-      {/* 🧭 모바일 드롭다운 메뉴 */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-gray-950 border-b border-gray-800 p-4 space-y-4 sticky top-[57px] z-40">
           <NavigationMenu />
         </div>
       )}
 
-      {/* 🖥️ 메인 대시보드 */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {loading ? (
           <div className="flex h-64 items-center justify-center text-xl font-bold animate-pulse text-gray-500">포털 기지 연결 중...</div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-8">
             
-            {/* 🥊 [전수 조사 반영] 실시간 플랫폼 체급 대항전 게이지 전광판 */}
+            {/* 🥊 양대 플랫폼 50vs50 전수조사 안내 전광판 세팅 */}
             <section className="bg-gray-950 p-5 rounded-2xl border border-gray-800 shadow-2xl space-y-4">
               <div className="flex justify-between items-center text-xs md:text-sm font-black tracking-wide">
-                <div className="flex items-center space-x-2 text-emerald-400 animate-pulse">
-                  <span>🟢 CHZZK 실시간 총합</span>
+                <div className="flex items-center space-x-2 text-emerald-400">
+                  <span>🟢 CHZZK (Top 50)</span>
                   <span className="font-mono bg-emerald-950/60 border border-emerald-500/20 px-2 py-0.5 rounded text-xs">
                     {platformStats.chzzkTotal.toLocaleString()}명
                   </span>
                 </div>
-                <div className="text-gray-500 text-[11px] font-bold">VS 플랫폼 실시간 점유율</div>
-                <div className="flex items-center space-x-2 text-sky-400 animate-pulse">
+                {/* 🎯 유저 인지용 안내 문구 추가 */}
+                <div className="text-center">
+                  <div className="text-gray-400 text-xs font-black">VS 플랫폼 점유율 대항전</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5 font-medium">양대 플랫폼 인기 라이브 방송 각 50명 기준</div>
+                </div>
+                <div className="flex items-center space-x-2 text-sky-400">
                   <span className="font-mono bg-sky-950/60 border border-sky-500/20 px-2 py-0.5 rounded text-xs">
                     {platformStats.soopTotal.toLocaleString()}명
                   </span>
-                  <span>SOOP 실시간 총합 🔵</span>
+                  <span>(Top 50) SOOP 🔵</span>
                 </div>
               </div>
 
-              {/* 하이테크 반응형 게이지 바 대치 구도 */}
               <div className="w-full h-5 bg-gray-800 rounded-full overflow-hidden flex border border-gray-700/50 shadow-inner relative">
                 <div 
                   className="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full flex items-center justify-start pl-3 text-[10px] font-black text-gray-950 transition-all duration-700"
@@ -300,7 +290,10 @@ export default function Home() {
             {/* 📊 1. 실시간 순위 표 */}
             {activeTab === 'ranking' && (
               <div className="space-y-4">
-                <header><h2 className="text-xl md:text-2xl font-black">CHZZK & SOOP 실시간 통합 랭킹</h2></header>
+                <header>
+                  <h2 className="text-xl md:text-2xl font-black">CHZZK & SOOP 통합 실시간 라이브 랭킹</h2>
+                  <p className="text-xs text-gray-500 mt-1">※ 양사 상위 인기 방송 50개씩 총 100명의 데이터를 시청자순으로 정렬한 지표입니다.</p>
+                </header>
                 <div className="bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
                   <div className="hidden md:grid grid-cols-12 bg-gray-700 p-4 text-sm font-bold text-gray-300 text-center">
                     <div className="col-span-1">순위</div><div className="col-span-2">플랫폼</div><div className="col-span-3 text-left pl-4">스트리머/BJ</div><div className="col-span-4 text-left">방송 제목</div><div className="col-span-2">시청자 수</div>

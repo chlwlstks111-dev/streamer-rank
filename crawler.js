@@ -2,44 +2,41 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 
-// ⚠️ 대표님의 수파베이스 주소와 열쇠를 정확히 넣어주세요!
 const SUPABASE_URL = 'https://zcsdmemnsqhslpwldnhd.supabase.co'; 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpjc2RtZW1uc3Foc2xwd2xkbmhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxOTMyMTAsImV4cCI6MjA5NTc2OTIxMH0.v7wEWd6UTtCeTd55VnCR8uDhUEAeHolv4xWrSQRZ4Wg';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function fetchLiveStreamers() {
-  console.log('🤖 [최종 수리 완료 로봇] 치지직 & 숲(SOOP) 실시간 라이브 데이터 동기화 가동...');
+  console.log('🤖 [형평성 50vs50 세팅] 치지직 & SOOP 탑 50 수집 가동...');
 
-  const allStreamers = [];
+  let chzzkStreamers = [];
+  let soopStreamers = [];
 
-  // 1. 🟢 치지직 실시간 데이터 수집 (인기순 상위 20개)
+  // 1. 🟢 치지직 상위 인기 50명 수집
   try {
-    const chzzkResponse = await axios.get('https://api.chzzk.naver.com/service/v1/lives?size=20&sortType=POPULAR', {
+    const chzzkResponse = await axios.get('https://api.chzzk.naver.com/service/v1/lives?size=50&sortType=POPULAR', {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
     });
     
     if (chzzkResponse.data?.content?.data) {
       chzzkResponse.data.content.data.forEach(stream => {
-        allStreamers.push({
-          name: stream.channel?.channelName || stream.liveTitle || '치지직 스트리머',
+        chzzkStreamers.push({
+          name: stream.channel?.channelName || '치지직 스트리머',
           platform: '치지직',
           viewers: parseInt(stream.concurrentUserCount) || 0,
-          current_game: stream.liveTitle || '라이브 방송' // 👈 [수정 완료] 기존 카테고리 대신 진짜 방송 제목 수집
+          current_game: stream.liveTitle || '라이브 방송'
         });
       });
     }
   } catch (err) {
-    console.error('❌ 치지직 데이터 수집 실패:', err.message);
+    console.error('❌ 치지직 수집 실패:', err.message);
   }
 
-  // 2. 🔵 숲 (SOOP) 실시간 데이터 수집 (메인 화면 실제 호출 API 주소 탑재)
+  // 2. 🔵 SOOP 메인 데이터 수집 후 상위 50명 정밀 커팅
   try {
     const soopResponse = await axios.get('https://live.sooplive.co.kr/api/main_broad_list_api.php', {
-      params: {
-        selectType: 'action',
-        pageKey: 'main'
-      },
+      params: { selectType: 'action', pageKey: 'main' },
       headers: { 
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://www.sooplive.co.kr/'
@@ -47,54 +44,48 @@ async function fetchLiveStreamers() {
     });
 
     if (soopResponse.data?.broad) {
+      const tempSoop = [];
       soopResponse.data.broad.forEach(stream => {
-        allStreamers.push({
+        tempSoop.push({
           name: stream.user_nick || '숲 BJ',
-          platform: '숲(SOOP)',
+          platform: 'SOOP',
           viewers: parseInt(stream.total_view_cnt) || 0,
-          current_game: stream.broad_title || '라이브 방송' // 👈 [수정 완료] 기존 카테고리 대신 진짜 방송 제목 수집
+          current_game: stream.broad_title || '라이브 방송'
         });
       });
+      // 시청자순 정렬 후 확실하게 딱 50명만 커트 (치지직과 동등)
+      tempSoop.sort((a, b) => b.viewers - a.viewers);
+      soopStreamers = tempSoop.slice(0, 50);
     }
   } catch (err) {
-    console.error('❌ 숲(SOOP) 데이터 수집 실패:', err.message);
+    console.error('❌ SOOP 수집 실패:', err.message);
   }
 
-  // 3. ⚖️ 모아진 치지직 + 숲 데이터를 시청자수 기준으로 완벽 정렬
-  allStreamers.sort((a, b) => b.viewers - a.viewers);
+  // 3. 양대 플랫폼 탑 50 데이터 결합 (총 100명 내외)
+  const finalStreamers = [...chzzkStreamers, ...soopStreamers];
+  finalStreamers.sort((a, b) => b.viewers - a.viewers);
 
-  // 4. ✂️ 대한민국 탑 10만 선별
-  const top10Streamers = allStreamers.slice(0, 10);
-
-  // 5. 💥 수파베이스 데이터베이스 최종 업데이트
-  if (top10Streamers.length > 0) {
+  if (finalStreamers.length > 0) {
     try {
-      // 테이블 청소
       await supabase.from('streamers').delete().neq('name', '');
 
-      // 10명의 데이터를 순서대로 적재
-      for (const streamer of top10Streamers) {
-        await supabase.from('streamers').insert({
-          name: streamer.name,
-          platform: streamer.platform,
-          viewers: streamer.viewers,
-          current_game: streamer.current_game,
-          tier: streamer.viewers >= 10000 ? '다이아' : streamer.viewers >= 3000 ? '골드' : '실버'
-        });
-      }
-      console.log(`✅ [완벽 동기화] 치지직 + 숲 진짜 실시간 TOP ${top10Streamers.length} 연동 완료! (총 수집 데이터: ${allStreamers.length}개)`);
+      const { error } = await supabase.from('streamers').insert(
+        finalStreamers.map(s => ({
+          name: s.name,
+          platform: s.platform,
+          viewers: s.viewers,
+          current_game: s.current_game,
+          tier: s.viewers >= 10000 ? 'S' : s.viewers >= 3000 ? 'A' : 'B'
+        }))
+      );
+
+      if (error) throw error;
+      console.log(`✅ [형평성 동기화 완료] 치지직 ${chzzkStreamers.length}명 vs SOOP ${soopStreamers.length}명 창고 적재 완료!`);
     } catch (supabaseErr) {
-      console.error('❌ 수파베이스 저장 오류:', supabaseErr.message);
+      console.error('❌ 창고 저장 오류:', supabaseErr.message);
     }
-  } else {
-    console.log('⚠️ 수집된 실시간 데이터가 존재하지 않습니다.');
   }
 }
 
-// 1분마다 실행
-cron.schedule('*/1 * * * *', () => {
-  fetchLiveStreamers();
-});
-
-// 즉시 가동
+cron.schedule('*/1 * * * *', () => { fetchLiveStreamers(); });
 fetchLiveStreamers();
