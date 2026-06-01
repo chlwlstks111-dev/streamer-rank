@@ -26,7 +26,7 @@ interface Post {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'ranking' | 'community'>('ranking');
-  const [subTab, setSubTab] = useState<'all' | 'concept'>('all'); // 디시형 [전체글/개념글] 탭
+  const [subTab, setSubTab] = useState<'all' | 'concept'>('all'); // [전체글/인기글] 탭
   
   const [streamers, setStreamers] = useState<Streamer[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -82,11 +82,11 @@ export default function Home() {
       setNewContent('');
       setNewAuthor('');
       fetchPosts();
-      alert('글이 디시 갤러리에 등록되었습니다! 🚀');
+      alert('의견이 성공적으로 등록되었습니다! 🚀');
     }
   };
 
-  // 👍 디시형 추천(개념글) 버튼 기능
+  // 실시간 추천 시스템
   const handleLike = async (postId: number, currentLikes: number) => {
     const { error } = await supabase
       .from('community_posts')
@@ -94,11 +94,11 @@ export default function Home() {
       .eq('id', postId);
 
     if (!error) {
-      fetchPosts(); // 실시간 추천수 반영
+      fetchPosts();
     }
   };
 
-  // [수정 완료] 추천수가 10개 이상이면 개념글로 인정
+  // 추천수가 10개 이상이면 [인기글]로 필터링
   const filteredPosts = subTab === 'all' 
     ? posts 
     : posts.filter(post => (post.likes || 0) >= 10);
@@ -134,7 +134,8 @@ export default function Home() {
               }`}
             >
               <span>💬</span>
-              <span>인방 갤러리 (커뮤)</span>
+              {/* 👈 대중적인 말로 변경 */}
+              <span>통합 커뮤니티 라운지</span>
             </button>
 
             <button
@@ -194,15 +195,16 @@ export default function Home() {
               </div>
             )}
 
-            {/* 2️⃣ 통합 커뮤니티 (추천수 10개 념글 필터) */}
+            {/* 2️⃣ 통합 커뮤니티 라운지 */}
             {activeTab === 'community' && (
               <div>
                 <header className="mb-6">
-                  <h2 className="text-2xl font-black">💬 스트리머 통합 갤러리</h2>
-                  <p className="text-gray-400 mt-1 text-sm">유저들이 직접 념글(개념글)을 보내는 디시 스타일 익명 광장</p>
+                  {/* 👈 타사 명칭 완전 제거 및 고급화 */}
+                  <h2 className="text-2xl font-black">💬 스트리머 통합 라운지</h2>
+                  <p className="text-gray-400 mt-1 text-sm">치지직과 SOOP 팬들이 자유롭게 소통하는 통합 익명 광장입니다.</p>
                 </header>
 
-                {/* 디시형 [전체글 / 개념글] 필터 버튼 시스템 */}
+                {/* [전체글 / 인기글] 필터 버튼 시스템 */}
                 <div className="flex space-x-2 mb-6 border-b border-gray-800 pb-3">
                   <button
                     onClick={() => setSubTab('all')}
@@ -219,7 +221,7 @@ export default function Home() {
                     }`}
                   >
                     <span>🔥</span>
-                    <span>개념글</span>
+                    <span>인기글</span>
                   </button>
                 </div>
 
@@ -228,21 +230,21 @@ export default function Home() {
                   <div className="grid grid-cols-3 gap-4">
                     <input
                       type="text"
-                      placeholder="디시 닉네임"
+                      placeholder="익명 닉네임"
                       value={newAuthor}
                       onChange={(e) => setNewAuthor(e.target.value)}
                       className="bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
                     />
                     <input
                       type="text"
-                      placeholder="념글 티켓 끊을 제목 입력"
+                      placeholder="글 제목을 입력하세요"
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       className="col-span-2 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500"
                     />
                   </div>
                   <textarea
-                    placeholder="인방 갤러리 떡밥을 굴려보세요! (욕설 및 비방 금지)"
+                    placeholder="인터넷 방송 관련 자유로운 이야기를 적어주세요! (욕설 및 비방 금지)"
                     rows={3}
                     value={newContent}
                     onChange={(e) => setNewContent(e.target.value)}
@@ -250,7 +252,7 @@ export default function Home() {
                   ></textarea>
                   <div className="text-right">
                     <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-sm transition-all shadow-md">
-                      갤러리 글쓰기 📝
+                      의견 등록하기 📝
                     </button>
                   </div>
                 </form>
@@ -259,19 +261,17 @@ export default function Home() {
                 <div className="space-y-4">
                   {filteredPosts.length === 0 ? (
                     <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl text-gray-500 text-sm">
-                      {/* [수정 완료] 추천 10개 안내 문구 개편 */}
-                      {subTab === 'concept' ? '🔥 아직 추천 10개를 받은 개념글이 없습니다. 념글 버튼을 눌러보세요!' : '갤러리에 작성된 글이 없습니다.'}
+                      {subTab === 'concept' ? '🔥 아직 추천 10개를 받은 인기글이 없습니다. 추천 버튼을 눌러보세요!' : '라운지에 작성된 글이 없습니다.'}
                     </div>
                   ) : (
                     filteredPosts.map((post) => (
                       <div key={post.id} className={`p-5 rounded-2xl border transition-all shadow-sm flex justify-between items-center ${
-                        // [수정 완료] 추천수 10개 이상 배경색 변경 조건 적용
                         (post.likes || 0) >= 10 ? 'bg-red-950/10 border-red-900/40' : 'bg-gray-800/50 border-gray-800 hover:border-gray-700'
                       }`}>
                         <div className="space-y-2 max-w-[80%]">
                           <div className="flex items-center space-x-2">
-                            {/* [수정 완료] 추천수 10개 이상 념글 배지 표기 조건 적용 */}
-                            {(post.likes || 0) >= 10 && <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-black">념글</span>}
+                            {/* 👈 [인기글] 배지로 개편 */}
+                            {(post.likes || 0) >= 10 && <span className="text-xs bg-red-600 text-white px-1.5 py-0.5 rounded font-black">인기</span>}
                             <span className="font-bold text-gray-200">{post.title}</span>
                           </div>
                           <p className="text-sm text-gray-400 whitespace-pre-wrap leading-relaxed">{post.content}</p>
@@ -281,11 +281,10 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* 👍 디시형 우측 추천 버튼 배정 */}
+                        {/* 👍 공용 추천 버튼 시스템 */}
                         <button
                           onClick={() => handleLike(post.id, post.likes || 0)}
                           className={`flex flex-col items-center justify-center w-16 h-16 rounded-xl border transition-all ${
-                            // [수정 완료] 추천수 10개 이상 버튼 활성화 조건 적용
                             (post.likes || 0) >= 10 
                               ? 'bg-red-900/30 border-red-500/40 text-red-400 hover:bg-red-900/50' 
                               : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-blue-500 hover:text-blue-400'
